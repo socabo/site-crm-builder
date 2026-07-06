@@ -14,6 +14,15 @@ specific to the business lives in one config file; the pages are generated fresh
 
 ---
 
+## Want it done for you?
+
+- **[Get one built for you →](https://stewardengine.com)** — we'll design, build, and ship your whole
+  site + CRM for you.
+- **[Try our AI SEO content generator →](https://harborseo.ai)** — fill your new site with
+  AI-written SEO content that ranks.
+
+---
+
 ## Install the skill
 
 Drop the folder into your Claude Code skills directory:
