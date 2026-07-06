@@ -45,16 +45,27 @@ This is a **fresh, universal** build. It is not, and should not become:
 Keep it capable and clean. If a business needs a vertical-specific feature, note it as a next step —
 don't bend this universal builder into a niche system.
 
-## Prerequisites (one-time accounts — all free to start)
+## Division of labour (important)
 
-Confirm the person has (or help them create) these, then collect the keys:
-- **Node 18+** and npm.
-- **Convex** — `npx convex dev` will prompt a login (browser) and create their project.
-- **Clerk** — dashboard.clerk.com → create an application → copy the **Publishable key** and
-  **Secret key**. (We wire a JWT template named `convex` below.)
-- **Stripe** — dashboard.stripe.com → Developers → API keys → copy the **test** Publishable + Secret
-  keys (`pk_test_…` / `sk_test_…`). Test mode is perfect for a tutorial.
-- **Vercel** — for deploy (`npx vercel`), optional until you ship.
+**The person does two things, in a browser:** creates a **Convex** project and a **Clerk** app (plus
+**Stripe**/**Vercel** if they want payments/hosting), and pastes you the env variables below. **You do
+everything else** — scaffold, install, write files, create the Clerk JWT template via API, push the
+schema, wire, build, deploy. Because they hand you a Convex **deploy key** (and optional Vercel token),
+nothing needs an interactive browser login mid-build. Don't tell them to run the CLI commands — you run
+them.
+
+Collect these up front (they get them from each dashboard):
+- **Convex** → create a project → Project Settings → **Deploy Keys** → Generate. Get:
+  `CONVEX_DEPLOY_KEY` and `NEXT_PUBLIC_CONVEX_URL` (the deployment URL).
+- **Clerk** → create an application → API keys. Get: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`,
+  `CLERK_SECRET_KEY`, and `CLERK_JWT_ISSUER_DOMAIN` (the Frontend API / JWT issuer URL). You create the
+  `convex` JWT template yourself via the Clerk API (step 4) — they don't.
+- **Stripe** *(optional)* → Developers → API keys → **test** keys: `STRIPE_SECRET_KEY`,
+  `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
+- **Vercel** *(optional, to deploy for them)* → Account Settings → Tokens → `VERCEL_TOKEN`.
+- **Node 18+** must be available in the environment you're running commands in.
+
+Write everything into `.env.local` from `.env.example`.
 
 ## Build workflow
 
@@ -78,18 +89,25 @@ cd <business-slug>
 npm install convex @clerk/nextjs stripe @stripe/stripe-js
 ```
 
-### 3. Wire the backend (Convex)
+### 3. Wire the backend (Convex) — non-interactive
 - Copy the template files into place: `config/site.config.ts`, `convex/schema.ts`, `convex/leads.ts`,
   `convex/auth.config.ts`.
-- `npx convex dev` — logs in, creates the project, writes `NEXT_PUBLIC_CONVEX_URL` +
-  `CONVEX_DEPLOYMENT` to `.env.local`, and pushes the schema. Leave it running (or use
-  `npx convex dev --once`).
+- Push the schema with the deploy key (no login prompt):
+  ```bash
+  CONVEX_DEPLOY_KEY=<their key> npx convex dev --once
+  ```
 - The `leads` table + functions come up immediately; no data modelling needed.
 
-### 4. Wire auth (Clerk)
-- Put the Clerk keys in `.env.local` (see `.env.example`).
-- In the **Clerk dashboard → JWT Templates**, create a template named exactly **`convex`** (Convex ↔
-  Clerk needs this; `convex/auth.config.ts` references it).
+### 4. Wire auth (Clerk) — you create the JWT template via API
+- Put the Clerk keys in `.env.local`.
+- Create the `convex` JWT template with the Clerk Backend API (idempotent — check first):
+  ```bash
+  curl -s https://api.clerk.com/v1/jwt_templates -H "Authorization: Bearer $CLERK_SECRET_KEY" | grep -q '"name":"convex"' \
+    || curl -s -X POST https://api.clerk.com/v1/jwt_templates \
+         -H "Authorization: Bearer $CLERK_SECRET_KEY" -H "Content-Type: application/json" \
+         -d '{"name":"convex","claims":{"aud":"convex"}}'
+  ```
+- Tell Convex the issuer domain: `CONVEX_DEPLOY_KEY=<key> npx convex env set CLERK_JWT_ISSUER_DOMAIN <their domain>`.
 - Add `middleware.ts` (protects `/dashboard`) and wrap `app/layout.tsx` in `<ClerkProvider>` +
   `<ConvexProviderWithClerk useAuth={useAuth}>` (a small client component — see the Files list below).
 - The owner signs in with an email listed in `config/site.config.ts` `adminEmails` to reach the CRM.
@@ -130,14 +148,15 @@ Copy `app/dashboard/page.tsx` (template). It renders:
 All reads/writes go through `convex/leads.ts` (auth-gated queries/mutations). It's reactive, so a lead
 submitted on the public site appears in the dashboard live.
 
-### 9. Deploy
+### 9. Deploy (you do it)
 ```bash
-npx convex deploy            # ship the backend first
-npx vercel                   # create the project + deploy the frontend
+CONVEX_DEPLOY_KEY=<key> npx convex deploy               # ship the backend first
+vercel deploy --prod --token $VERCEL_TOKEN --yes        # ship the site (if they gave a token)
 ```
-Add the env vars in the Vercel project settings (all keys from `.env.local`, using **production**
-Convex/Clerk/Stripe values when going live). Point the Clerk production instance + Stripe webhook at
-the deployed URL. Keep Stripe in test mode until they're ready.
+Set the same env vars on the Vercel project (`vercel env add … --token …`), using **production**
+Convex/Clerk/Stripe values when going live. If they didn't give a Vercel token, hand them the one
+manual step: import the GitHub repo at vercel.com and paste the env vars. Keep Stripe in test mode
+until they're ready.
 
 ### 10. Verify (don't claim done without this)
 - `npx next build` passes.
@@ -163,9 +182,10 @@ starters are in `templates/` (`config/site.config.ts`, `convex/schema.ts`); writ
   status/value/notes, CSV export, and the Stripe payment-link button if `site.payments` is non-empty).
 - `app/api/checkout/route.ts` — creates a Stripe Checkout Session (from a `site.payments` item, or an
   ad-hoc `{name, amount, currency}` for a CRM payment link) and returns the URL.
-- `.env.example` — `NEXT_PUBLIC_CONVEX_URL`, `CONVEX_DEPLOYMENT`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`,
-  `CLERK_SECRET_KEY`, `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SITE_URL`.
-  Also set `CLERK_JWT_ISSUER_DOMAIN` on the Convex deployment (`npx convex env set`).
+- `.env.example` — `NEXT_PUBLIC_CONVEX_URL`, `CONVEX_DEPLOY_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`,
+  `CLERK_SECRET_KEY`, `CLERK_JWT_ISSUER_DOMAIN`, `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`,
+  `NEXT_PUBLIC_SITE_URL`, `VERCEL_TOKEN`. (`CLERK_JWT_ISSUER_DOMAIN` also gets set on the Convex
+  deployment via `npx convex env set`.)
 
 Marking a lead paid is a manual toggle in the CRM; auto-marking via a Stripe webhook is a listed
 extension below, not part of the core build.

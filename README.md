@@ -53,13 +53,24 @@ The full playbook it follows is in [`SKILL.md`](SKILL.md); starter code is in [`
 | **Vercel** | Hosting the live site | https://vercel.com |
 | **GitHub** | Store your code | https://github.com |
 
-### 2. Keys (copy these from each dashboard when asked)
+### 2. Env variables to hand the skill
 
-- **Clerk** → *API keys*: Publishable key (`pk_…`) + Secret key (`sk_…`), and your **JWT issuer
-  domain** (create a JWT template named exactly `convex`).
-- **Stripe** → *Developers → API keys*: **test** Publishable (`pk_test_…`) + Secret (`sk_test_…`).
-  *(Skip if the business doesn't take payments.)*
-- **Convex** — no key to paste; `npx convex dev` logs you in via the browser and writes its own keys.
+Create the projects above, then paste these to the skill — **it does everything else with them.** You
+don't run any of the commands yourself.
+
+| Variable | Where to get it |
+|---|---|
+| `NEXT_PUBLIC_CONVEX_URL` | Convex → your project → the deployment URL |
+| `CONVEX_DEPLOY_KEY` | Convex → Project Settings → **Deploy Keys** → Generate (lets the skill push without a browser login) |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk → API keys (`pk_…`) |
+| `CLERK_SECRET_KEY` | Clerk → API keys (`sk_…`) |
+| `CLERK_JWT_ISSUER_DOMAIN` | Clerk → API keys → your Frontend API / JWT issuer URL |
+| `STRIPE_SECRET_KEY` *(optional)* | Stripe → Developers → API keys (`sk_test_…`) |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` *(optional)* | Stripe → Developers → API keys (`pk_test_…`) |
+| `VERCEL_TOKEN` *(optional)* | Vercel → Account Settings → Tokens (lets the skill deploy for you) |
+
+You do **not** need to create the Clerk `convex` JWT template yourself — the skill creates it for you
+via the Clerk API using your secret key.
 
 ### 3. Your business details (the intake)
 
@@ -76,32 +87,30 @@ Everything above goes into one file — [`templates/config/site.config.ts`](temp
 
 ---
 
-## CLIs / terminal commands you'll run
+## Who does what
 
-You run these in a terminal (the skill walks you through them). In order:
+**Your part (a few minutes, in a browser):** create a **Convex** project and a **Clerk** app (plus
+**Stripe**/**Vercel** if you want payments/hosting), then paste the skill the env variables above.
+That's the whole job — you don't type any commands.
+
+**The skill's part (automatic):** it writes all the code and runs every command for you — scaffolds the
+app, installs packages, creates the Clerk `convex` JWT template via the Clerk API, pushes your Convex
+schema with your deploy key, wires the site + CRM + Stripe, builds, and deploys. Because you provide a
+Convex deploy key (and optional Vercel token), none of it needs a browser login mid-build.
+
+<details><summary>The commands it runs under the hood (for the curious — you don't run these)</summary>
 
 ```bash
-# 1. Scaffold the app
 npx create-next-app@latest my-business --typescript --tailwind --app --eslint --src-dir=false --import-alias "@/*"
-cd my-business
 npm install convex @clerk/nextjs stripe @stripe/stripe-js
-
-# 2. Start the backend (logs you into Convex, creates the project, pushes the schema)
-npx convex dev
-
-# 3. Tell Convex who your login provider is (Clerk), for the CRM auth
-npx convex env set CLERK_JWT_ISSUER_DOMAIN https://YOUR-app.clerk.accounts.dev
-
-# 4. Run the site locally while you build
-npm run dev            # http://localhost:3000
-
-# 5. Ship it
-npx convex deploy      # backend first
-npx vercel             # deploy the site (add your env vars in the Vercel project settings)
+CONVEX_DEPLOY_KEY=<yours> npx convex dev --once        # push the schema, no login prompt
+CONVEX_DEPLOY_KEY=<yours> npx convex env set CLERK_JWT_ISSUER_DOMAIN https://YOUR-app.clerk.accounts.dev
+# create the Clerk "convex" JWT template via the Clerk API (uses CLERK_SECRET_KEY)
+npx next build
+CONVEX_DEPLOY_KEY=<yours> npx convex deploy            # ship the backend
+vercel deploy --prod --token <yours>                   # ship the site
 ```
-
-**CLIs used:** `node` / `npm` (JavaScript), `npx convex` (backend), `npx vercel` (deploy), `git` +
-`gh` (GitHub). Clerk and Stripe are configured in their **web dashboards** — no CLI needed.
+</details>
 
 Test card for Stripe checkout: `4242 4242 4242 4242`, any future expiry, any CVC.
 
