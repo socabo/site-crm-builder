@@ -1,0 +1,12 @@
+# This repo is the skill itself, not a built app — but keep the usual noise out
+# in case someone scaffolds a test app inside it.
+node_modules/
+.next/
+out/
+.env
+.env.local
+.env*.local
+.convex/
+.vercel/
+.DS_Store
+*.log
