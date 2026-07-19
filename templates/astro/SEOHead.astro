@@ -1,0 +1,44 @@
+---
+/**
+ * SEOHead.astro — goes in the <head> of every page (via BaseLayout).
+ *
+ * Every page passes a unique keyword-first title (<60 chars) and a unique
+ * ≤160-char description. Canonical + OG URLs derive from site.url, so set it
+ * in site.config.ts (and `site` in astro.config.mjs for the sitemap).
+ */
+import site from "../../config/site.config";
+
+interface Props {
+  title: string;
+  description: string;
+  /** path of this page, e.g. "/services/boiler-repair" */
+  path: string;
+  /** absolute or /public image for og:image; falls back to /og-default.png */
+  image?: string;
+  /** page-specific JSON-LD (Service, BlogPosting, FAQPage, …) */
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+  ogType?: "website" | "article";
+}
+
+const { title, description, path, image = "/og-default.png", jsonLd, ogType = "website" } = Astro.props;
+const canonical = new URL(path, site.url).href;
+const ogImage = new URL(image, site.url).href;
+---
+
+<title>{title}</title>
+<meta name="description" content={description} />
+<link rel="canonical" href={canonical} />
+
+<meta property="og:type" content={ogType} />
+<meta property="og:site_name" content={site.name} />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:url" content={canonical} />
+<meta property="og:image" content={ogImage} />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={ogImage} />
+
+{jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}

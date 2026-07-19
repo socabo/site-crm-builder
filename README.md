@@ -1,13 +1,15 @@
 # site-crm-builder
 
-A Claude Code **skill** that generates a complete marketing website **+ a built-in CRM** for any
-business — from a short brief or an existing site's URL. It scaffolds and deploys a fresh, universal
-**Next.js + Convex + Clerk + Stripe** app: a real multi-page site with a lead-capture form, plus a
-login-protected CRM (leads inbox, statuses, notes, lead value, dashboard stats, search, CSV export)
-and Stripe payments.
+A Claude Code **skill** that generates a complete SEO-optimized marketing website **+ a built-in
+CRM** for any business — from a short brief or an existing site's URL. It scaffolds and deploys a
+fresh, universal **Astro + Convex + Clerk + Stripe** app: a static-first, multi-page site (a
+keyword-targeted page per service, a blog, sitemap, structured data) with a lead-capture form, plus
+a login-protected CRM (leads inbox, statuses, notes, lead value, dashboard stats, search, CSV
+export) and Stripe payments.
 
 Works for **any** business — plumber, dentist, coffee roaster, SaaS, consultant, gym. Everything
-specific to the business lives in one config file; the pages are generated fresh.
+specific to the business lives in one config file; the pages are generated fresh — after a real
+keyword-research pass on the niche.
 
 > It is deliberately a single-business build. It does **not** clone an existing site 1:1, and it is
 > not a multi-tenant / industry-specific engine. See "Scope" in [`SKILL.md`](SKILL.md).
@@ -56,17 +58,17 @@ The full playbook it follows is in [`SKILL.md`](SKILL.md); starter code is in [`
 ### 2. Env variables to hand the skill
 
 Create the projects above, then paste these to the skill — **it does everything else with them.** You
-don't run any of the commands yourself.
+don't run any of the commands yourself. (Astro uses the `PUBLIC_` prefix for browser-visible vars.)
 
 | Variable | Where to get it |
 |---|---|
-| `NEXT_PUBLIC_CONVEX_URL` | Convex → your project → the deployment URL |
+| `PUBLIC_CONVEX_URL` | Convex → your project → the deployment URL |
 | `CONVEX_DEPLOY_KEY` | Convex → Project Settings → **Deploy Keys** → Generate (lets the skill push without a browser login) |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk → API keys (`pk_…`) |
+| `PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk → API keys (`pk_…`) |
 | `CLERK_SECRET_KEY` | Clerk → API keys (`sk_…`) |
 | `CLERK_JWT_ISSUER_DOMAIN` | Clerk → API keys → your Frontend API / JWT issuer URL |
 | `STRIPE_SECRET_KEY` *(optional)* | Stripe → Developers → API keys (`sk_test_…`) |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` *(optional)* | Stripe → Developers → API keys (`pk_test_…`) |
+| `PUBLIC_STRIPE_PUBLISHABLE_KEY` *(optional)* | Stripe → Developers → API keys (`pk_test_…`) |
 | `VERCEL_TOKEN` *(optional)* | Vercel → Account Settings → Tokens (lets the skill deploy for you) |
 
 You do **not** need to create the Clerk `convex` JWT template yourself — the skill creates it for you
@@ -84,6 +86,8 @@ Have these ready — or point the skill at your existing website URL and it will
 - **Admin email(s)**: who is allowed to log into the CRM.
 
 Everything above goes into one file — [`templates/config/site.config.ts`](templates/config/site.config.ts).
+Before building, the skill also researches your niche (what ranks, keyword gaps, long-tail phrases)
+and proposes the page list + keyword targets for your sign-off.
 
 ---
 
@@ -93,20 +97,22 @@ Everything above goes into one file — [`templates/config/site.config.ts`](temp
 **Stripe**/**Vercel** if you want payments/hosting), then paste the skill the env variables above.
 That's the whole job — you don't type any commands.
 
-**The skill's part (automatic):** it writes all the code and runs every command for you — scaffolds the
-app, installs packages, creates the Clerk `convex` JWT template via the Clerk API, pushes your Convex
-schema with your deploy key, wires the site + CRM + Stripe, builds, and deploys. Because you provide a
-Convex deploy key (and optional Vercel token), none of it needs a browser login mid-build.
+**The skill's part (automatic):** it researches your niche, writes all the code, and runs every
+command for you — scaffolds the Astro app, installs packages, creates the Clerk `convex` JWT template
+via the Clerk API, pushes your Convex schema with your deploy key, wires the site + CRM + Stripe,
+builds, and deploys. Because you provide a Convex deploy key (and optional Vercel token), none of it
+needs a browser login mid-build.
 
 <details><summary>The commands it runs under the hood (for the curious — you don't run these)</summary>
 
 ```bash
-npx create-next-app@latest my-business --typescript --tailwind --app --eslint --src-dir=false --import-alias "@/*"
-npm install convex @clerk/nextjs stripe @stripe/stripe-js
+npm create astro@latest my-business -- --template minimal --install --no-git
+npx astro add react tailwind sitemap vercel --yes
+npm install convex @clerk/astro stripe @stripe/stripe-js
 CONVEX_DEPLOY_KEY=<yours> npx convex dev --once        # push the schema, no login prompt
 CONVEX_DEPLOY_KEY=<yours> npx convex env set CLERK_JWT_ISSUER_DOMAIN https://YOUR-app.clerk.accounts.dev
 # create the Clerk "convex" JWT template via the Clerk API (uses CLERK_SECRET_KEY)
-npx next build
+npx astro build
 CONVEX_DEPLOY_KEY=<yours> npx convex deploy            # ship the backend
 vercel deploy --prod --token <yours>                   # ship the site
 ```
@@ -118,10 +124,16 @@ Test card for Stripe checkout: `4242 4242 4242 4242`, any future expiry, any CVC
 
 ## What it builds
 
-- **Marketing site** — Home, About/Services, Contact; responsive; real SEO metadata + `sitemap.xml`.
-- **Lead capture** — an enquiry form that writes straight to your CRM.
-- **CRM** at `/dashboard` (login-protected) — leads with status, notes, value, live stats, search,
-  and CSV export. Reactive: a lead submitted on a phone appears on your laptop instantly.
+- **SEO marketing site** — static-first Astro (near-zero JavaScript on marketing pages): Home,
+  About, a keyword-targeted page **per service** (800–1500 words), a blog via content collections,
+  Contact; responsive; unique metadata + Open Graph + JSON-LD per page, `sitemap-index.xml`,
+  `robots.txt`.
+- **Keyword research** — the page list comes from real niche research (what ranks, gaps, long-tails),
+  not a template.
+- **Lead capture** — an enquiry form (React island) that writes straight to your CRM.
+- **CRM** at `/dashboard` (login-protected React island) — leads with status, notes, value, live
+  stats, search, and CSV export. Reactive: a lead submitted on a phone appears on your laptop
+  instantly.
 - **Payments** — a Stripe checkout button + "send a payment link" from a lead.
 
 See [`SKILL.md`](SKILL.md) for the full file list, the build steps, and the "extend it yourself" ladder.
