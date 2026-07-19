@@ -7,7 +7,23 @@
  * gate all read from this object.
  */
 
-export type ServiceItem = { title: string; blurb: string };
+export type ServiceItem = {
+  title: string;
+  blurb: string;
+  /** URL slug for this service's SEO landing page, e.g. "boiler-repair" */
+  slug?: string;
+  /** primary keyword this service page targets, from the research step */
+  keyword?: string;
+};
+
+export type SeoConfig = {
+  /** primary keyword for the home page, e.g. "emergency plumber dublin" */
+  primaryKeyword: string;
+  /** supporting long-tail phrases discovered in the research step */
+  longTails: string[];
+  /** towns/areas for local-SEO copy; empty for non-local businesses */
+  serviceAreas: string[];
+};
 
 export type PaymentItem = {
   /** stable id used by the Buy button + /api/checkout */
@@ -52,6 +68,16 @@ export const site = {
   payments: [
     // { id: "deposit", name: "Booking deposit", description: "Secures your slot", amount: 5000, currency: "usd" },
   ] as PaymentItem[],
+
+  /**
+   * Filled in from the keyword-research step (SKILL.md step 2). Drives page
+   * titles, descriptions, and which long-tails the blog posts target.
+   */
+  seo: {
+    primaryKeyword: "your service your town",
+    longTails: [],
+    serviceAreas: [],
+  } as SeoConfig,
 
   /** Emails allowed into the /dashboard CRM (compared lower-case). */
   adminEmails: ["hello@your-business.example"],
